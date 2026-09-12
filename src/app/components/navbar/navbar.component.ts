@@ -1,0 +1,263 @@
+import { Component, ElementRef, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { User } from '../../models/models';
+
+@Component({
+  selector: 'app-navbar',
+  standalone: true,
+  imports: [CommonModule, RouterLink, RouterLinkActive],
+  template: `
+    <ng-container *ngIf="authService.isLoggedIn()">
+      <!-- Top Header Bar -->
+      <header class="top-navbar">
+        <div class="navbar-left">
+          <button
+            class="sidebar-toggle-btn"
+            (click)="toggleSidebar()"
+            title="Toggle Sidebar Menu"
+            aria-label="Toggle Sidebar Menu"
+          >
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+          </button>
+
+          <a routerLink="/dashboard" class="brand">
+            <div class="brand-icon">AI</div>
+            <span class="brand-title">Item Analysis System</span>
+          </a>
+
+          <!-- Desktop Quick Navigation -->
+          <nav class="desktop-nav-links">
+            <a
+              routerLink="/dashboard"
+              routerLinkActive="active"
+              class="nav-link"
+              >Dashboard</a
+            >
+            <a
+              routerLink="/assessments"
+              routerLinkActive="active"
+              class="nav-link"
+              >Assessments</a
+            >
+            <a
+              routerLink="/assessment/new"
+              routerLinkActive="active"
+              class="nav-link"
+              >+ New Assessment</a
+            >
+            <a
+              *ngIf="authService.isAdmin() || authService.isSuperadmin()"
+              routerLink="/admin/users"
+              routerLinkActive="active"
+              class="nav-link"
+              >User Admin</a
+            >
+            <a
+              *ngIf="authService.isAdmin() || authService.isSuperadmin()"
+              routerLink="/admin/settings"
+              routerLinkActive="active"
+              class="nav-link"
+              >System Settings</a
+            >
+          </nav>
+        </div>
+
+        <div class="navbar-right">
+          <!-- Connected User Avatar & Popup Trigger -->
+          <div
+            class="user-popup-wrapper"
+            *ngIf="authService.currentUser() as user"
+          >
+            <button
+              class="user-profile-btn"
+              (click)="toggleUserPopup($event)"
+              [class.active]="isUserPopupOpen"
+              aria-label="User profile menu"
+            >
+              <div class="avatar-circle">
+                {{ getUserInitials(user) }}
+              </div>
+              <div class="user-info-brief">
+                <span class="user-display-name"
+                  >{{ user.first_name }} {{ user.surname }}</span
+                >
+                <span class="user-role-tag">{{ user.role }}</span>
+              </div>
+              <span class="dropdown-chevron">▼</span>
+            </button>
+
+            <!-- User Profile Popup / Dropdown Modal -->
+            <div
+              class="user-dropdown-card"
+              *ngIf="isUserPopupOpen"
+              (click)="$event.stopPropagation()"
+            >
+              <div class="user-card-header">
+                <div class="large-avatar">{{ getUserInitials(user) }}</div>
+                <div class="header-details">
+                  <div class="user-full-name">
+                    {{ user.first_name }}
+                    {{ user.middle_name ? user.middle_name + ' ' : ''
+                    }}{{ user.surname }}
+                  </div>
+                  <span class="role-pill">{{ user.role }}</span>
+                </div>
+              </div>
+
+              <div class="user-card-body">
+                <div class="info-row">
+                  <span class="info-label">Email</span>
+                  <span class="info-val">{{ user.email }}</span>
+                </div>
+                <div class="info-row" *ngIf="user.school">
+                  <span class="info-label">School / Institution</span>
+                  <span class="info-val">{{ user.school }}</span>
+                </div>
+                <div class="info-row" *ngIf="user.profession">
+                  <span class="info-label">Profession / Title</span>
+                  <span class="info-val">{{ user.profession }}</span>
+                </div>
+                <div class="info-row" *ngIf="user.specialization">
+                  <span class="info-label">Specialization</span>
+                  <span class="info-val">{{ user.specialization }}</span>
+                </div>
+              </div>
+
+              <div class="user-card-footer">
+                <button
+                  class="btn btn-danger btn-sm logout-button"
+                  (click)="logout()"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Sidebar Navigation Menu Drawer -->
+      <aside class="sidebar-drawer" [class.open]="isSidebarOpen">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <div class="brand-icon">AI</div>
+            <span>Item Analysis</span>
+          </div>
+          <button class="sidebar-close-btn" (click)="closeSidebar()">✕</button>
+        </div>
+
+        <nav class="sidebar-menu">
+          <div class="sidebar-category">MAIN MENU</div>
+          <a
+            routerLink="/dashboard"
+            routerLinkActive="active"
+            class="sidebar-link"
+            (click)="closeSidebarOnMobile()"
+          >
+            Dashboard
+          </a>
+          <a
+            routerLink="/assessments"
+            routerLinkActive="active"
+            class="sidebar-link"
+            (click)="closeSidebarOnMobile()"
+          >
+            Assessments
+          </a>
+          <a
+            routerLink="/assessment/new"
+            routerLinkActive="active"
+            class="sidebar-link"
+            (click)="closeSidebarOnMobile()"
+          >
+            + New Assessment
+          </a>
+
+          <ng-container
+            *ngIf="authService.isAdmin() || authService.isSuperadmin()"
+          >
+            <div class="sidebar-category" style="margin-top: 1.5rem;">
+              SYSTEM ADMINISTRATION
+            </div>
+            <a
+              routerLink="/admin/users"
+              routerLinkActive="active"
+              class="sidebar-link"
+              (click)="closeSidebarOnMobile()"
+            >
+              User Admin
+            </a>
+            <a
+              routerLink="/admin/settings"
+              routerLinkActive="active"
+              class="sidebar-link"
+              (click)="closeSidebarOnMobile()"
+            >
+              System Settings
+            </a>
+          </ng-container>
+        </nav>
+      </aside>
+
+      <!-- Sidebar Backdrop for Mobile/Small Screens -->
+      <div
+        class="sidebar-backdrop"
+        *ngIf="isSidebarOpen"
+        (click)="closeSidebar()"
+      ></div>
+    </ng-container>
+  `,
+})
+export class NavbarComponent {
+  isSidebarOpen = false;
+  isUserPopupOpen = false;
+
+  constructor(
+    public authService: AuthService,
+    private eRef: ElementRef,
+  ) {}
+
+  toggleSidebar() {
+    this.isSidebarOpen = !this.isSidebarOpen;
+  }
+
+  closeSidebar() {
+    this.isSidebarOpen = false;
+  }
+
+  closeSidebarOnMobile() {
+    if (window.innerWidth < 1024) {
+      this.isSidebarOpen = false;
+    }
+  }
+
+  toggleUserPopup(event: MouseEvent) {
+    event.stopPropagation();
+    this.isUserPopupOpen = !this.isUserPopupOpen;
+  }
+
+  getUserInitials(user: User): string {
+    const f = user.first_name ? user.first_name[0] : '';
+    const s = user.surname ? user.surname[0] : '';
+    return (f + s).toUpperCase() || 'U';
+  }
+
+  logout() {
+    this.isUserPopupOpen = false;
+    this.authService.logout();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (
+      this.isUserPopupOpen &&
+      !this.eRef.nativeElement.contains(event.target)
+    ) {
+      this.isUserPopupOpen = false;
+    }
+  }
+}
