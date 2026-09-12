@@ -35,6 +35,7 @@ export class AssessmentWizardComponent implements OnInit {
   pdfGenerating = false;
   successMessage = '';
   errorMessage = '';
+  private errorMessageTimer?: ReturnType<typeof setTimeout>;
 
   // 2PL Graph visibility states
   selectedGraphQuestion: number | null = null;
@@ -359,8 +360,21 @@ export class AssessmentWizardComponent implements OnInit {
           this.assessment = asm;
           this.successMessage = `Assessment status updated to ${status}.`;
         },
-        error: () => (this.errorMessage = 'Failed to update status.'),
+        error: (err) =>
+          this.showTemporaryError(
+            err.error?.error || 'Failed to update status.',
+          ),
       });
+  }
+
+  private showTemporaryError(message: string) {
+    if (this.errorMessageTimer) clearTimeout(this.errorMessageTimer);
+
+    this.errorMessage = message;
+    this.errorMessageTimer = setTimeout(() => {
+      this.errorMessage = '';
+      this.errorMessageTimer = undefined;
+    }, 5000);
   }
 
   downloadPDF() {

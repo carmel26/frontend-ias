@@ -18,10 +18,15 @@ export class UserManagementComponent implements OnInit {
   newFirstName = '';
   newSurname = '';
   newSchool = 'School of Science & Technology';
+  newMiddleName = '';
+  school = '';
+  connectedUserSchool = '';
+  schoolOptions: string[] = [];
   newProfession = 'Academic Admin';
   newSpecialization = 'Assessment & Evaluation';
   newEmail = '';
   newPassword = '';
+  newConfirmPassword = '';
   newRole: UserRole = 'Admin';
 
   creating = false;
@@ -34,6 +39,45 @@ export class UserManagementComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    if (this.authService.isAdmin()) {
+      this.newSchool = this.authService.currentUser()?.school || this.newSchool;
+      this.newRole = 'Lecturer';
+    }
+    this.assessmentService.getSystemSettings().subscribe({
+      next: (settings) => {
+        this.connectedUserSchool = this.authService.currentUser()?.school || '';
+
+        console.log('Connected User School:', this.connectedUserSchool);
+
+        this.schoolOptions = settings.schools;
+
+        // Select the connected user's school
+        if (this.schoolOptions.includes(this.connectedUserSchool)) {
+          this.school = this.connectedUserSchool;
+        } else {
+          this.school = this.schoolOptions[0] || '';
+        }
+
+        console.log('Selected School:', this.school);
+      },
+
+      error: () => {
+        this.schoolOptions = [
+          'School of Science & Technologys',
+          'School of Business',
+          'Faculty of Education',
+        ];
+
+        this.connectedUserSchool = this.authService.currentUser()?.school || '';
+
+        if (this.schoolOptions.includes(this.connectedUserSchool)) {
+          this.school = this.connectedUserSchool;
+        } else {
+          this.school = this.schoolOptions[2] || '';
+        }
+      },
+    });
+
     this.loadUsers();
   }
 
@@ -79,14 +123,34 @@ export class UserManagementComponent implements OnInit {
       return;
     }
 
+    if (this.newPassword.length < 6) {
+      this.errorMessage = 'Password must be at least 6 characters long.';
+      return;
+    }
+
+    if (this.newPassword !== this.newConfirmPassword) {
+      this.errorMessage = 'Passwords do not match.';
+      return;
+    }
+
+    if (
+      this.users.some(
+        (user) =>
+          user.email.toLowerCase() === this.newEmail.trim().toLowerCase(),
+      )
+    ) {
+      this.errorMessage = 'An account with this email already exists.';
+      return;
+    }
+
     this.creating = true;
     this.errorMessage = '';
 
     const payload = {
       first_name: this.newFirstName,
-      middle_name: null,
+      middle_name: this.newMiddleName ? this.newMiddleName : null,
       surname: this.newSurname,
-      school: this.newSchool,
+      school: this.school,
       profession: this.newProfession,
       specialization: this.newSpecialization,
       email: this.newEmail,
@@ -106,5 +170,13 @@ export class UserManagementComponent implements OnInit {
         this.errorMessage = err.error?.error || 'Failed to create account.';
       },
     });
+  }
+
+  openCreateUserModal() {
+    if (this.authService.isAdmin()) {
+      this.newSchool = this.authService.currentUser()?.school || this.newSchool;
+      this.newRole = 'Lecturer';
+    }
+    this.showCreateModal = true;
   }
 }
