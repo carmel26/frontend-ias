@@ -1,0 +1,295 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Assessment Dashboard</h1>
+    <p class="page-subtitle">
+      Welcome back, {{ authService.currentUser()?.first_name }}! Overview of
+      assessment items and verification status.
+    </p>
+  </div>
+
+  <div>
+    <a routerLink="/assessment/new" class="btn btn-primary btn-lg">
+      + Create New Assessment
+    </a>
+  </div>
+</div>
+
+<!-- 5 KPI Cards -->
+<div class="grid-cols-4" *ngIf="stats">
+  <div class="stat-card">
+    <div class="stat-icon primary">ALL</div>
+    <div>
+      <div class="stat-value">{{ stats.total_assessments }}</div>
+      <div class="stat-label">Total Assessments</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon info">SUB</div>
+    <div>
+      <div class="stat-value">{{ stats.submitted }}</div>
+      <div class="stat-label">Submitted</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon warning">VER</div>
+    <div>
+      <div class="stat-value">{{ stats.under_verification }}</div>
+      <div class="stat-label">Under Verification</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon success">OK</div>
+    <div>
+      <div class="stat-value">{{ stats.verified }}</div>
+      <div class="stat-label">Verified</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon danger">REJ</div>
+    <div>
+      <div class="stat-value">{{ stats.rejected }}</div>
+      <div class="stat-label">Rejected</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-cols-2" style="margin-top: 1.5rem">
+  <!-- Status Breakdown Chart / Visual Diagram -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Assessment Status Breakdown</h2>
+    </div>
+    <div *ngIf="stats" style="padding: 1rem 0">
+      <!-- Visual progress bar diagram -->
+      <div
+        style="
+          height: 24px;
+          display: flex;
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 1.5rem;
+          background-color: #e2e8f0;
+        "
+      >
+        <div
+          [style.width.%]="getPercent(stats.draft)"
+          style="background-color: #94a3b8"
+          title="Draft"
+        ></div>
+        <div
+          [style.width.%]="getPercent(stats.submitted)"
+          style="background-color: #0284c7"
+          title="Submitted"
+        ></div>
+        <div
+          [style.width.%]="getPercent(stats.under_verification)"
+          style="background-color: #d97706"
+          title="Under Verification"
+        ></div>
+        <div
+          [style.width.%]="getPercent(stats.verified)"
+          style="background-color: #059669"
+          title="Verified"
+        ></div>
+        <div
+          [style.width.%]="getPercent(stats.rejected)"
+          style="background-color: #dc2626"
+          title="Rejected"
+        ></div>
+      </div>
+
+      <div
+        style="
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+          font-size: 0.9rem;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 0.5rem">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background-color: #94a3b8;
+              display: inline-block;
+            "
+          ></span>
+          <span
+            >Draft: <strong>{{ stats.draft }}</strong> ({{
+              getPercent(stats.draft) | number: "1.0-1"
+            }}%)</span
+          >
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background-color: #0284c7;
+              display: inline-block;
+            "
+          ></span>
+          <span
+            >Submitted: <strong>{{ stats.submitted }}</strong> ({{
+              getPercent(stats.submitted) | number: "1.0-1"
+            }}%)</span
+          >
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background-color: #d97706;
+              display: inline-block;
+            "
+          ></span>
+          <span
+            >Under Verification:
+            <strong>{{ stats.under_verification }}</strong> ({{
+              getPercent(stats.under_verification) | number: "1.0-1"
+            }}%)</span
+          >
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background-color: #059669;
+              display: inline-block;
+            "
+          ></span>
+          <span
+            >Verified: <strong>{{ stats.verified }}</strong> ({{
+              getPercent(stats.verified) | number: "1.0-1"
+            }}%)</span
+          >
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem">
+          <span
+            style="
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background-color: #dc2626;
+              display: inline-block;
+            "
+          ></span>
+          <span
+            >Rejected: <strong>{{ stats.rejected }}</strong> ({{
+              getPercent(stats.rejected) | number: "1.0-1"
+            }}%)</span
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions / Guide -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Quick Actions & Workflow</h2>
+    </div>
+    <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted)">
+      <p style="margin-bottom: 0.75rem">
+        Follow the 5-step item analysis workflow:
+      </p>
+      <ol style="margin-left: 1.25rem; margin-bottom: 1.25rem">
+        <li>
+          <strong>Create Assessment:</strong> Subject, Type, Student Count.
+        </li>
+        <li>
+          <strong>Question Entry:</strong> Enter $U_c$ and $L_c$ for each item.
+        </li>
+        <li>
+          <strong>Analyze:</strong> Review Difficulty & Discrimination indices.
+        </li>
+        <li><strong>Submit:</strong> Submit for admin verification.</li>
+        <li><strong>Report:</strong> Download PDF report for records.</li>
+      </ol>
+      <div style="display: flex; gap: 0.75rem">
+        <a routerLink="/assessment/new" class="btn btn-primary btn-sm"
+          >+ New Assessment</a
+        >
+        <a routerLink="/assessments" class="btn btn-secondary btn-sm"
+          >View All Assessments</a
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Assessments Table -->
+<div class="card" style="margin-top: 1.5rem">
+  <div class="card-header">
+    <h2 class="card-title">Recent Assessments</h2>
+    <a routerLink="/assessments" class="btn btn-secondary btn-sm">View All</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Title & Subject</th>
+          <th>Lecturer</th>
+          <th>Type</th>
+          <th>Students</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let asm of stats?.recent_assessments">
+          <td>
+            <div style="font-weight: 700; color: var(--text-main)">
+              {{ asm.title }}
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted)">
+              {{ asm.subject }}
+            </div>
+          </td>
+          <td>{{ asm.lecturer_name }}</td>
+          <td>
+            <span class="badge badge-draft" style="background: #e2e8f0">{{
+              asm.assessment_type
+            }}</span>
+          </td>
+          <td>{{ asm.num_students }}</td>
+          <td>{{ asm.date }}</td>
+          <td>
+            <span [class]="getStatusBadgeClass(asm.status)">{{
+              asm.status
+            }}</span>
+          </td>
+          <td>
+            <a
+              [routerLink]="['/assessment', asm.id]"
+              class="btn btn-secondary btn-sm"
+            >
+              Open Workflow
+            </a>
+          </td>
+        </tr>
+        <tr *ngIf="!stats?.recent_assessments?.length">
+          <td
+            colspan="7"
+            style="text-align: center; color: var(--text-muted); padding: 2rem"
+          >
+            No assessments found. Create your first assessment to begin!
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
