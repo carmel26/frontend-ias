@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -21,9 +21,9 @@ import html2canvas from 'html2canvas';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './assessment-wizard.component.html',
-  styleUrls: ['./assessment-wizard.component.css']
+  styleUrls: ['./assessment-wizard.component.css'],
 })
-export class AssessmentWizardComponent implements OnInit {
+export class AssessmentWizardComponent implements OnInit, OnDestroy {
   assessmentId: string | null = null;
   assessment: Assessment | null = null;
   settings: SystemSettings | null = null;
@@ -35,7 +35,8 @@ export class AssessmentWizardComponent implements OnInit {
   pdfGenerating = false;
   successMessage = '';
   errorMessage = '';
-  private errorMessageTimer?: ReturnType<typeof setTimeout>;
+
+  private messageTimer?: ReturnType<typeof setTimeout>;
 
   // 2PL Graph visibility states
   selectedGraphQuestion: number | null = null;
@@ -71,6 +72,7 @@ export class AssessmentWizardComponent implements OnInit {
     private router: Router,
     private assessmentService: AssessmentService,
     public authService: AuthService,
+    private ngZone: NgZone // Injected NgZone for reliable UI updates
   ) {}
 
   ngOnInit() {
@@ -92,6 +94,35 @@ export class AssessmentWizardComponent implements OnInit {
         this.initDefaultQuestions(5);
       }
     });
+  }
+
+  ngOnDestroy() {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+  }
+
+  // Helper method to display messages and auto-clear after delay (default 4 seconds)
+  private showMessage(type: 'success' | 'error', message: string, durationMs = 4000) {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    if (type === 'success') {
+      this.successMessage = message;
+      this.errorMessage = '';
+    } else {
+      this.errorMessage = message;
+      this.successMessage = '';
+    }
+
+    this.messageTimer = setTimeout(() => {
+      this.ngZone.run(() => {
+        this.successMessage = '';
+        this.errorMessage = '';
+        this.messageTimer = undefined;
+      });
+    }, durationMs);
   }
 
   toggleGraph(qNum: number) {
@@ -163,7 +194,7 @@ export class AssessmentWizardComponent implements OnInit {
         this.loadQuestions();
         this.loadAnalysis();
       },
-      error: () => (this.errorMessage = 'Failed to load assessment.'),
+      error: () => this.showMessage('error', 'Failed to load assessment.'),
     });
   }
 
@@ -234,12 +265,11 @@ export class AssessmentWizardComponent implements OnInit {
 
   saveAssessmentInfo() {
     if (!this.subject || !this.title || !this.date || this.numStudents <= 0) {
-      this.errorMessage = 'Please complete all required assessment details.';
+      this.showMessage('error', 'Please complete all required assessment details.');
       return;
     }
 
     this.saving = true;
-    this.errorMessage = '';
 
     const payload = {
       subject: this.subject,
@@ -256,13 +286,12 @@ export class AssessmentWizardComponent implements OnInit {
           next: (asm) => {
             this.saving = false;
             this.assessment = asm;
-            this.successMessage = 'Assessment info updated.';
+            this.showMessage('success', 'Assessment info updated.');
             this.setStep(2);
           },
           error: (err) => {
             this.saving = false;
-            this.errorMessage =
-              err.error?.error || 'Failed to update assessment.';
+            this.showMessage('error', err.error?.error || 'Failed to update assessment.');
           },
         });
     } else {
@@ -271,14 +300,13 @@ export class AssessmentWizardComponent implements OnInit {
           this.saving = false;
           this.assessment = asm;
           this.assessmentId = asm.id;
-          this.successMessage = 'Assessment created successfully.';
+          this.showMessage('success', 'Assessment created successfully.');
           this.router.navigate(['/assessment', asm.id]);
           this.setStep(2);
         },
         error: (err) => {
           this.saving = false;
-          this.errorMessage =
-            err.error?.error || 'Failed to create assessment.';
+          this.showMessage('error', err.error?.error || 'Failed to create assessment.');
         },
       });
     }
@@ -322,20 +350,18 @@ export class AssessmentWizardComponent implements OnInit {
     if (!this.assessmentId) return;
 
     this.saving = true;
-    this.errorMessage = '';
 
     this.assessmentService
       .batchSaveQuestions(this.assessmentId, this.questionInputs)
       .subscribe({
         next: () => {
           this.saving = false;
-          this.successMessage = 'Question data saved.';
+          this.showMessage('success', 'Question data saved.');
           this.setStep(3);
         },
         error: (err) => {
           this.saving = false;
-          this.errorMessage =
-            err.error?.error || 'Failed to save question data.';
+          this.showMessage('error', err.error?.error || 'Failed to save question data.');
         },
       });
   }
@@ -345,9 +371,9 @@ export class AssessmentWizardComponent implements OnInit {
     this.assessmentService.submitAssessment(this.assessmentId).subscribe({
       next: (asm) => {
         this.assessment = asm;
-        this.successMessage = 'Assessment submitted for verification!';
+        this.showMessage('success', 'Assessment submitted for verification!');
       },
-      error: () => (this.errorMessage = 'Failed to submit assessment.'),
+      error: () => this.showMessage('error', 'Failed to submit assessment.'),
     });
   }
 
@@ -358,23 +384,11 @@ export class AssessmentWizardComponent implements OnInit {
       .subscribe({
         next: (asm) => {
           this.assessment = asm;
-          this.successMessage = `Assessment status updated to ${status}.`;
+          this.showMessage('success', `Assessment status updated to ${status}.`);
         },
         error: (err) =>
-          this.showTemporaryError(
-            err.error?.error || 'Failed to update status.',
-          ),
+          this.showMessage('error', err.error?.error || 'Failed to update status.'),
       });
-  }
-
-  private showTemporaryError(message: string) {
-    if (this.errorMessageTimer) clearTimeout(this.errorMessageTimer);
-
-    this.errorMessage = message;
-    this.errorMessageTimer = setTimeout(() => {
-      this.errorMessage = '';
-      this.errorMessageTimer = undefined;
-    }, 5000);
   }
 
   downloadPDF() {

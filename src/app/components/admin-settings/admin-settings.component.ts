@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AssessmentService } from '../../services/assessment.service';
@@ -8,149 +8,9 @@ import { DiscriminationThresholds, SystemSettings } from '../../models/models';
   selector: 'app-admin-settings',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Admin System Settings</h1>
-        <p class="page-subtitle">
-          Configure group percentages, discrimination thresholds, schools, and
-          assessment types
-        </p>
-      </div>
-    </div>
-
-    <div *ngIf="successMessage" class="alert alert-success">
-      {{ successMessage }}
-    </div>
-    <div *ngIf="errorMessage" class="alert alert-danger">
-      {{ errorMessage }}
-    </div>
-
-    <div class="card" *ngIf="settings">
-      <div class="card-header">
-        <h2 class="card-title">
-          1. Configurable Upper & Lower Group Percentage
-        </h2>
-      </div>
-
-      <div class="form-group" style="max-width: 400px;">
-        <label class="form-label">Upper / Lower Group Percentage (%) *</label>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <input
-            type="number"
-            class="form-control"
-            [(ngModel)]="percentage"
-            step="0.5"
-            min="1"
-            max="50"
-            required
-          />
-          <span style="font-weight: 700;">%</span>
-        </div>
-        <p
-          style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;"
-        >
-          Default is <strong>27.0%</strong>. For 100 students: Upper =
-          {{ round((100 * percentage) / 100) }}, Lower =
-          {{ round((100 * percentage) / 100) }}, Middle =
-          {{ 100 - 2 * round((100 * percentage) / 100) }}.
-        </p>
-      </div>
-    </div>
-
-    <div class="card" *ngIf="settings">
-      <div class="card-header">
-        <h2 class="card-title">
-          2. Discrimination Index Classification Thresholds ($D$)
-        </h2>
-      </div>
-
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Excellent Item Threshold ($D ge$)</label>
-          <input
-            type="number"
-            class="form-control"
-            [(ngModel)]="thresholds.excellent"
-            step="0.05"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Good Item Threshold ($D ge$)</label>
-          <input
-            type="number"
-            class="form-control"
-            [(ngModel)]="thresholds.good"
-            step="0.05"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Fair Item Threshold ($D ge$)</label>
-          <input
-            type="number"
-            class="form-control"
-            [(ngModel)]="thresholds.fair"
-            step="0.05"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Poor Item Threshold ($D ge$)</label>
-          <input
-            type="number"
-            class="form-control"
-            [(ngModel)]="thresholds.poor"
-            step="0.05"
-          />
-        </div>
-      </div>
-      <p style="font-size: 0.8rem; color: var(--text-muted);">
-        Items with $D < 0.00$ are classified as <strong>Negative</strong>.
-      </p>
-    </div>
-
-    <div class="card" *ngIf="settings">
-      <div class="card-header">
-        <h2 class="card-title">3. Managed Schools & Assessment Types</h2>
-      </div>
-
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label"
-            >Schools / Institutions (comma separated)</label
-          >
-          <textarea
-            class="form-control"
-            rows="3"
-            [(ngModel)]="schoolsText"
-          ></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Assessment Types (comma separated)</label>
-          <textarea
-            class="form-control"
-            rows="3"
-            [(ngModel)]="typesText"
-          ></textarea>
-        </div>
-      </div>
-    </div>
-
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 2rem;">
-      <button
-        class="btn btn-primary btn-lg"
-        (click)="saveSettings()"
-        [disabled]="saving"
-      >
-        {{ saving ? 'Saving Settings...' : 'Save All Settings' }}
-      </button>
-    </div>
-  `,
+  templateUrl: './admin-settings.component.html',
 })
-export class AdminSettingsComponent implements OnInit {
+export class AdminSettingsComponent implements OnInit, OnDestroy {
   settings: SystemSettings | null = null;
   percentage = 27.0;
   thresholds: DiscriminationThresholds = {
@@ -166,7 +26,12 @@ export class AdminSettingsComponent implements OnInit {
   successMessage = '';
   errorMessage = '';
 
-  constructor(private assessmentService: AssessmentService) {}
+  private messageTimer?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    private assessmentService: AssessmentService,
+    private ngZone: NgZone // Injected NgZone for reliable UI updates
+  ) {}
 
   ngOnInit() {
     this.assessmentService.getSystemSettings().subscribe({
@@ -177,8 +42,37 @@ export class AdminSettingsComponent implements OnInit {
         this.schoolsText = s.schools.join(', ');
         this.typesText = s.assessment_types.join(', ');
       },
-      error: (err) => (this.errorMessage = 'Failed to load system settings.'),
+      error: () => this.showMessage('error', 'Failed to load system settings.'),
     });
+  }
+
+  ngOnDestroy() {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+  }
+
+  // Helper method to display messages and auto-clear after delay (default 4 seconds)
+  private showMessage(type: 'success' | 'error', message: string, durationMs = 4000) {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    if (type === 'success') {
+      this.successMessage = message;
+      this.errorMessage = '';
+    } else {
+      this.errorMessage = message;
+      this.successMessage = '';
+    }
+
+    this.messageTimer = setTimeout(() => {
+      this.ngZone.run(() => {
+        this.successMessage = '';
+        this.errorMessage = '';
+        this.messageTimer = undefined;
+      });
+    }, durationMs);
   }
 
   round(val: number): number {
@@ -187,8 +81,6 @@ export class AdminSettingsComponent implements OnInit {
 
   saveSettings() {
     this.saving = true;
-    this.successMessage = '';
-    this.errorMessage = '';
 
     const schools = this.schoolsText
       .split(',')
@@ -210,11 +102,11 @@ export class AdminSettingsComponent implements OnInit {
       next: (updated) => {
         this.saving = false;
         this.settings = updated;
-        this.successMessage = 'System settings updated successfully!';
+        this.showMessage('success', 'System settings updated successfully!');
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err.error?.error || 'Failed to save settings.';
+        this.showMessage('error', err.error?.error || 'Failed to save settings.');
       },
     });
   }
