@@ -3,12 +3,14 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { AuthResponse, User, UserRole } from '../models/models';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private apiUrl = 'http://127.0.0.1:3000/api';
+  private apiUrl = environment.apiUrl;
+  // private apiUrl = 'http://127.0.0.1:3000/api';
   currentUser = signal<User | null>(null);
 
   isLoggedIn = computed(() => !!this.currentUser());

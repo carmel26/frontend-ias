@@ -12,12 +12,14 @@ import {
   SystemSettings,
   User,
 } from '../models/models';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AssessmentService {
-  private apiUrl = 'http://127.0.0.1:3000/api';
+  // private apiUrl = 'http://127.0.0.1:3000/api';
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
